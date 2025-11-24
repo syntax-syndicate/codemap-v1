@@ -36,6 +36,10 @@ var ignoredDirs = map[string]bool{
 	"venv":          true,
 	".env":          true,
 	".pytest_cache": true,
+	"dist":          true,
+	".next":         true,
+	".nuxt":         true,
+	"target":        true,
 }
 
 func loadGitignore(root string) *ignore.GitIgnore {
