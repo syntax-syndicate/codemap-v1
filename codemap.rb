@@ -28,6 +28,7 @@ class Codemap < Formula
 
     # 2. Install Python Renderer
     (libexec/"renderer").install "renderer/render.py"
+    (libexec/"renderer").install "renderer/cityscape.py"
 
     # 3. Create Virtual Environment and Install Dependencies
     venv = virtualenv_create(libexec/"venv", "python3")
