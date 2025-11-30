@@ -68,6 +68,13 @@ brew tap JordanCoin/tap
 brew install codemap
 ```
 
+### Scoop (Windows)
+
+```powershell
+scoop bucket add codemap https://github.com/JordanCoin/scoop-codemap
+scoop install codemap
+```
+
 ### Download Binary
 
 Pre-built binaries with full `--deps` support are available for all platforms on the [Releases page](https://github.com/JordanCoin/codemap/releases):
