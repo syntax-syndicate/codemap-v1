@@ -66,15 +66,17 @@ jobs:
 
           echo "$GRAMMARS" | while IFS=: read -r lang repo branch src_dir; do
             [ -z "$lang" ] && continue
-            echo "Building $lang..."
+            echo "Building $lang from $repo..."
 
+            # Extract to temp dir to avoid conflicts
+            rm -rf _grammar_build && mkdir _grammar_build && cd _grammar_build
             curl -sL "https://github.com/$repo/archive/refs/heads/$branch.tar.gz" | tar xz
-            extracted_dir=$(ls -d */ 2>/dev/null | head -1)
+            extracted_dir=$(ls -d */ | head -1)
             src_path="${extracted_dir}${src_dir}"
 
             if [ ! -d "$src_path" ]; then
-              echo "  ✗ Source not found"
-              rm -rf "$extracted_dir"
+              echo "  ✗ Source not found: $src_path"
+              cd .. && rm -rf _grammar_build
               continue
             fi
 
@@ -86,8 +88,8 @@ jobs:
               sources="$sources scanner.o"
             fi
 
-            clang -shared -fPIC -I"$src_path" $sources -o "grammars/libtree-sitter-$lang.dylib"
-            rm -rf "$extracted_dir" scanner.o 2>/dev/null
+            clang -shared -fPIC -I"$src_path" $sources -o ../grammars/libtree-sitter-$lang.dylib 2>&1 || echo "  ✗ Compile failed"
+            cd .. && rm -rf _grammar_build
 
             [ -f "grammars/libtree-sitter-$lang.dylib" ] && echo "  ✓ Built" || echo "  ✗ Failed"
           done
@@ -153,18 +155,21 @@ jobs:
         run: |
           mkdir -p grammars
           CC="${{ matrix.cc || 'gcc' }}"
+          CXX="${CC/gcc/g++}"
 
           echo "$GRAMMARS" | while IFS=: read -r lang repo branch src_dir; do
             [ -z "$lang" ] && continue
-            echo "Building $lang..."
+            echo "Building $lang from $repo..."
 
+            # Extract to temp dir to avoid conflicts
+            rm -rf _grammar_build && mkdir _grammar_build && cd _grammar_build
             curl -sL "https://github.com/$repo/archive/refs/heads/$branch.tar.gz" | tar xz
-            extracted_dir=$(ls -d */ 2>/dev/null | head -1)
+            extracted_dir=$(ls -d */ | head -1)
             src_path="${extracted_dir}${src_dir}"
 
             if [ ! -d "$src_path" ]; then
-              echo "  ✗ Source not found"
-              rm -rf "$extracted_dir"
+              echo "  ✗ Source not found: $src_path"
+              cd .. && rm -rf _grammar_build
               continue
             fi
 
@@ -172,13 +177,13 @@ jobs:
             if [ -f "$src_path/scanner.c" ]; then
               sources="$sources $src_path/scanner.c"
             elif [ -f "$src_path/scanner.cc" ]; then
-              ${CC/gcc/g++} -c -fPIC -I"$src_path" "$src_path/scanner.cc" -o scanner.o 2>/dev/null || \
+              $CXX -c -fPIC -I"$src_path" "$src_path/scanner.cc" -o scanner.o 2>/dev/null || \
               g++ -c -fPIC -I"$src_path" "$src_path/scanner.cc" -o scanner.o
               sources="$sources scanner.o"
             fi
 
-            $CC -shared -fPIC -I"$src_path" $sources -o "grammars/libtree-sitter-$lang.so" 2>/dev/null || echo "  Warning: build issue"
-            rm -rf "$extracted_dir" scanner.o 2>/dev/null
+            $CC -shared -fPIC -I"$src_path" $sources -o ../grammars/libtree-sitter-$lang.so 2>&1 || echo "  ✗ Compile failed"
+            cd .. && rm -rf _grammar_build
 
             [ -f "grammars/libtree-sitter-$lang.so" ] && echo "  ✓ Built" || echo "  ✗ Failed"
           done
@@ -253,15 +258,17 @@ jobs:
 
           echo "$GRAMMARS" | while IFS=: read -r lang repo branch src_dir; do
             [ -z "$lang" ] && continue
-            echo "Building $lang..."
+            echo "Building $lang from $repo..."
 
+            # Extract to temp dir to avoid conflicts
+            rm -rf _grammar_build && mkdir _grammar_build && cd _grammar_build
             curl -sL "https://github.com/$repo/archive/refs/heads/$branch.tar.gz" | tar xz
-            extracted_dir=$(ls -d */ 2>/dev/null | head -1)
+            extracted_dir=$(ls -d */ | head -1)
             src_path="${extracted_dir}${src_dir}"
 
             if [ ! -d "$src_path" ]; then
-              echo "  ✗ Source not found"
-              rm -rf "$extracted_dir"
+              echo "  ✗ Source not found: $src_path"
+              cd .. && rm -rf _grammar_build
               continue
             fi
 
@@ -273,8 +280,8 @@ jobs:
               [ -f scanner.o ] && sources="$sources scanner.o"
             fi
 
-            zig cc -target x86_64-windows-gnu -shared -fPIC -I"$src_path" $sources -o "grammars/libtree-sitter-$lang.dll" 2>/dev/null || echo "  Warning: build issue"
-            rm -rf "$extracted_dir" scanner.o 2>/dev/null
+            zig cc -target x86_64-windows-gnu -shared -fPIC -I"$src_path" $sources -o ../grammars/libtree-sitter-$lang.dll 2>&1 || echo "  ✗ Compile failed"
+            cd .. && rm -rf _grammar_build
 
             [ -f "grammars/libtree-sitter-$lang.dll" ] && echo "  ✓ Built" || echo "  ✗ Failed"
           done
