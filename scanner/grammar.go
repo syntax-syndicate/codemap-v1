@@ -69,6 +69,8 @@ func NewGrammarLoader() *GrammarLoader {
 	possibleDirs = append(possibleDirs,
 		filepath.Join(getExecutableDir(), "grammars"),
 		filepath.Join(getExecutableDir(), "..", "lib", "grammars"),
+		"/opt/homebrew/opt/codemap/libexec/grammars", // Homebrew Apple Silicon
+		"/usr/local/opt/codemap/libexec/grammars",    // Homebrew Intel Mac
 		"/usr/local/lib/codemap/grammars",
 		filepath.Join(os.Getenv("HOME"), ".codemap", "grammars"),
 		"./grammars",         // For development
