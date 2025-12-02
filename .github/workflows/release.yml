@@ -90,13 +90,16 @@ jobs:
 
   # ============================================================
   # Build: One job per platform (grammars + Go + archive)
-  # Skipped when bump != none (tag push triggers fresh run)
+  # Waits for bump-version if it runs, otherwise starts immediately
   # ============================================================
   build-darwin-amd64:
-    if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.bump != 'none') }}
+    needs: [bump-version]
+    if: always() && !cancelled()
     runs-on: macos-13
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.bump-version.outputs.new_tag || github.ref }}
       - uses: actions/setup-go@v5
         with:
           go-version: '1.21'
@@ -126,10 +129,13 @@ jobs:
           path: dist/codemap-darwin-amd64.tar.gz
 
   build-darwin-arm64:
-    if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.bump != 'none') }}
+    needs: [bump-version]
+    if: always() && !cancelled()
     runs-on: macos-14
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.bump-version.outputs.new_tag || github.ref }}
       - uses: actions/setup-go@v5
         with:
           go-version: '1.21'
@@ -159,10 +165,13 @@ jobs:
           path: dist/codemap-darwin-arm64.tar.gz
 
   build-linux-amd64:
-    if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.bump != 'none') }}
+    needs: [bump-version]
+    if: always() && !cancelled()
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.bump-version.outputs.new_tag || github.ref }}
       - uses: actions/setup-go@v5
         with:
           go-version: '1.21'
@@ -192,10 +201,13 @@ jobs:
           path: dist/codemap-linux-amd64.tar.gz
 
   build-linux-arm64:
-    if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.bump != 'none') }}
+    needs: [bump-version]
+    if: always() && !cancelled()
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.bump-version.outputs.new_tag || github.ref }}
       - uses: actions/setup-go@v5
         with:
           go-version: '1.21'
@@ -234,10 +246,13 @@ jobs:
           path: dist/codemap-linux-arm64.tar.gz
 
   build-windows-amd64:
-    if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.bump != 'none') }}
+    needs: [bump-version]
+    if: always() && !cancelled()
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.bump-version.outputs.new_tag || github.ref }}
       - uses: actions/setup-go@v5
         with:
           go-version: '1.21'
@@ -282,11 +297,22 @@ jobs:
   # Publish: Create GitHub Release + Update Package Managers
   # ============================================================
   publish:
-    needs: [build-darwin-amd64, build-darwin-arm64, build-linux-amd64, build-linux-arm64, build-windows-amd64]
+    needs: [bump-version, build-darwin-amd64, build-darwin-arm64, build-linux-amd64, build-linux-arm64, build-windows-amd64]
     runs-on: ubuntu-latest
-    if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.dry_run == false)
+    if: always() && !cancelled() && (github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.dry_run == false))
+    outputs:
+      tag_name: ${{ steps.tag.outputs.tag_name }}
     steps:
       - uses: actions/checkout@v4
+
+      - name: Determine tag name
+        id: tag
+        run: |
+          if [ -n "${{ needs.bump-version.outputs.new_tag }}" ]; then
+            echo "tag_name=${{ needs.bump-version.outputs.new_tag }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag_name=${{ github.ref_name }}" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Download all artifacts
         uses: actions/download-artifact@v4
@@ -299,6 +325,7 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
         with:
+          tag_name: ${{ steps.tag.outputs.tag_name }}
           files: |
             artifacts/**/*.tar.gz
             artifacts/**/*.zip
@@ -306,6 +333,7 @@ jobs:
 
   update-homebrew:
     needs: [publish]
+    if: always() && needs.publish.result == 'success'
     runs-on: ubuntu-latest
     steps:
       - name: Wait for release assets
@@ -314,7 +342,7 @@ jobs:
       - name: Get version and hashes
         id: info
         env:
-          TAG_NAME: ${{ github.ref_name }}
+          TAG_NAME: ${{ needs.publish.outputs.tag_name }}
         run: |
           VERSION="${TAG_NAME#v}"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
@@ -339,7 +367,7 @@ jobs:
           VERSION: ${{ steps.info.outputs.version }}
           SHA_ARM64: ${{ steps.info.outputs.sha_arm64 }}
           SHA_AMD64: ${{ steps.info.outputs.sha_amd64 }}
-          TAG_NAME: ${{ github.ref_name }}
+          TAG_NAME: ${{ needs.publish.outputs.tag_name }}
         run: |
           cd homebrew-tap
           cat > codemap.rb << EOF
@@ -388,6 +416,7 @@ jobs:
 
   update-scoop:
     needs: [publish]
+    if: always() && needs.publish.result == 'success'
     runs-on: ubuntu-latest
     steps:
       - name: Wait for release assets
@@ -396,7 +425,7 @@ jobs:
       - name: Get version and hash
         id: info
         env:
-          TAG_NAME: ${{ github.ref_name }}
+          TAG_NAME: ${{ needs.publish.outputs.tag_name }}
         run: |
           VERSION="${TAG_NAME#v}"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
@@ -416,7 +445,7 @@ jobs:
         env:
           VERSION: ${{ steps.info.outputs.version }}
           SHA256: ${{ steps.info.outputs.sha256 }}
-          TAG_NAME: ${{ github.ref_name }}
+          TAG_NAME: ${{ needs.publish.outputs.tag_name }}
         run: |
           cd scoop-bucket
           cat > codemap.json << EOF
